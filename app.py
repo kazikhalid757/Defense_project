@@ -1,6 +1,6 @@
 import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
-from google_play_scraper import app, reviews
+from google_play_scraper import reviews
 import re
 import streamlit as st
 
@@ -16,13 +16,20 @@ def extract_app_id(url):
         raise ValueError("Could not extract app ID from URL")
 
 # Load model and tokenizer
-def load_model_and_tokenizer(model_path):
+def load_model_and_tokenizer(model_path=None):
     """
-    Load the model and tokenizer.
+    Load the model and tokenizer either from Hugging Face or a local path.
     """
     tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
-    model = AutoModelForSequenceClassification.from_pretrained("distilbert-base-uncased", num_labels=2)
-    model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')), weights_only=True)
+    
+    if model_path:
+        # If model_path is provided, load the model from the local path
+        model = AutoModelForSequenceClassification.from_pretrained("distilbert-base-uncased", num_labels=2)
+        model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')), weights_only=True)
+    else:
+        # If no model_path is provided, load directly from Hugging Face
+        model = AutoModelForSequenceClassification.from_pretrained("distilbert-base-uncased", num_labels=2)
+    
     model.eval()  # Set to evaluation mode
     return tokenizer, model
 
@@ -50,12 +57,12 @@ def predict_review_authenticity(reviews, tokenizer, model):
 
 # Streamlit UI for input and display results
 def streamlit_app():
-    st.title("Detecting Fack Apps throught User Review Analysis in Google play Store")
+    st.title("Detecting Fake Apps through User Review Analysis in Google Play Store")
     
     # User input for app URL
     app_url = st.text_input("Enter Google Play Store App URL: ")
     
-    model_path = "distilbert_model_pt.pt"  # Path to your saved model
+    model_path = "distilbert_model_pt.pt"  # Path to your saved model (use None to load from Hugging Face)
     
     # Add some custom styling for Streamlit
     st.markdown("""
@@ -117,10 +124,8 @@ def streamlit_app():
                 for idx, prediction in enumerate(predictions):
                     if prediction.item() == 0:
                         fake_count += 1
-                        
                     else:
                         genuine_count += 1
-                        
                 
                 # Display overall result with colors
                 if fake_count > genuine_count:
@@ -131,7 +136,6 @@ def streamlit_app():
                 # Display the count of fake and genuine reviews with summary styling
                 st.markdown(f"<div class='summary'>Genuine reviews: {genuine_count}</div>", unsafe_allow_html=True)
                 st.markdown(f"<div class='summary'>Fake reviews: {fake_count}</div>", unsafe_allow_html=True)
-                
                 
             except Exception as e:
                 st.error(f"An error occurred: {str(e)}")
