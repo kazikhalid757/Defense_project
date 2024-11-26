@@ -21,14 +21,25 @@ def load_model_and_tokenizer(model_path=None):
     Load the model and tokenizer either from Hugging Face or a local path.
     """
     tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
-    
+
     if model_path:
         # If model_path is provided, load the model from the local path
-        model = AutoModelForSequenceClassification.from_pretrained("distilbert-base-uncased", num_labels=2)
-        model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')), weights_only=True)
+        try:
+            model = AutoModelForSequenceClassification.from_pretrained(model_path, num_labels=2)
+            model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')), weights_only=True)
+        except Exception as e:
+            print(f"Error loading local model: {e}")
+            model = None
     else:
         # If no model_path is provided, load directly from Hugging Face
-        model = AutoModelForSequenceClassification.from_pretrained("distilbert-base-uncased", num_labels=2)
+        try:
+            model = AutoModelForSequenceClassification.from_pretrained("distilbert-base-uncased", num_labels=2)
+        except Exception as e:
+            print(f"Error loading model from Hugging Face: {e}")
+            model = None
+    
+    if model is None:
+        raise ValueError("Failed to load model. Please check the model path or Hugging Face access.")
     
     model.eval()  # Set to evaluation mode
     return tokenizer, model
