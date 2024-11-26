@@ -22,7 +22,7 @@ def load_model_and_tokenizer(model_path):
     """
     tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
     model = AutoModelForSequenceClassification.from_pretrained("distilbert-base-uncased", num_labels=2)
-    model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))  # Load the model on CPU
+    model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')), weights_only=True)
     model.eval()  # Set to evaluation mode
     return tokenizer, model
 
