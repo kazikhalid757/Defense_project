@@ -16,33 +16,24 @@ def extract_app_id(url):
         raise ValueError("Could not extract app ID from URL")
 
 # Load model and tokenizer
-def load_model_and_tokenizer(model_path=None):
+def load_model_and_tokenizer(model_path):
     """
-    Load the model and tokenizer either from Hugging Face or a local path.
+    Load the tokenizer and model from a local .pt file.
     """
-    tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
-
-    if model_path:
-        # If model_path is provided, load the model from the local path
-        try:
-            model = AutoModelForSequenceClassification.from_pretrained(model_path, num_labels=2)
-            model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')), weights_only=True)
-        except Exception as e:
-            print(f"Error loading local model: {e}")
-            model = None
-    else:
-        # If no model_path is provided, load directly from Hugging Face
-        try:
-            model = AutoModelForSequenceClassification.from_pretrained("distilbert-base-uncased", num_labels=2)
-        except Exception as e:
-            print(f"Error loading model from Hugging Face: {e}")
-            model = None
+    if not model_path:
+        raise ValueError("Model path must be provided to load the model.")
     
-    if model is None:
-        raise ValueError("Failed to load model. Please check the model path or Hugging Face access.")
-    
-    model.eval()  # Set to evaluation mode
-    return tokenizer, model
+    try:
+        # Load tokenizer
+        tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
+        
+        # Initialize model and load weights
+        model = AutoModelForSequenceClassification.from_pretrained("distilbert-base-uncased", num_labels=2)
+        model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')), strict=True)
+        model.eval()  # Set to evaluation mode
+        return tokenizer, model
+    except Exception as e:
+        raise RuntimeError(f"Error loading local model or tokenizer: {e}")
 
 # Scrape Google Play Store reviews using Google Play Scraper
 def scrape_reviews(app_id, num_reviews=500):
@@ -73,7 +64,7 @@ def streamlit_app():
     # User input for app URL
     app_url = st.text_input("Enter Google Play Store App URL: ")
     
-    model_path = "distilbert_model_pt.pt"  # Path to your saved model (use None to load from Hugging Face)
+    model_path = "distilbert_model_pt.pt"  # Path to your saved model
     
     # Add some custom styling for Streamlit
     st.markdown("""
@@ -128,15 +119,8 @@ def streamlit_app():
                 predictions = predict_review_authenticity(reviews_list, tokenizer, model)
                 
                 # Count genuine and fake reviews
-                fake_count = 0
-                genuine_count = 0
-                review_results = []
-                
-                for idx, prediction in enumerate(predictions):
-                    if prediction.item() == 0:
-                        fake_count += 1
-                    else:
-                        genuine_count += 1
+                fake_count = (predictions == 0).sum().item()
+                genuine_count = (predictions == 1).sum().item()
                 
                 # Display overall result with colors
                 if fake_count > genuine_count:
@@ -147,7 +131,6 @@ def streamlit_app():
                 # Display the count of fake and genuine reviews with summary styling
                 st.markdown(f"<div class='summary'>Genuine reviews: {genuine_count}</div>", unsafe_allow_html=True)
                 st.markdown(f"<div class='summary'>Fake reviews: {fake_count}</div>", unsafe_allow_html=True)
-                
             except Exception as e:
                 st.error(f"An error occurred: {str(e)}")
         else:
